@@ -54,8 +54,8 @@ function RegistrationForm({ events = [] }) {
     try {
       setSubmitting(true);
       const createdAt = new Date().toISOString();
-      await api.post('/registrations', { ...formData, createdAt });
-      await api.post('/telemetry', {
+      await api.post('/api/registrations', { ...formData, createdAt });
+      await api.post('/api/telemetry', {
         studentName: formData.name.trim(),
         eventName: formData.event.trim(),
         action: 'registered',
@@ -67,7 +67,7 @@ function RegistrationForm({ events = [] }) {
       setErrors({});
       setTouched({});
     } catch {
-      setMessage('Unable to submit your registration. Please start JSON Server and try again.');
+      setMessage('Unable to submit your registration. Please try again.');
     } finally {
       setSubmitting(false);
     }

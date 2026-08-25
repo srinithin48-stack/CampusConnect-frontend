@@ -11,7 +11,7 @@ function App() {
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        const response = await api.get('/events');
+        const response = await api.get('/api/events');
         setEvents(Array.isArray(response.data) ? response.data : []);
       } catch (error) {
         console.error('Unable to load events from JSON Server.', error);
