@@ -1,7 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/client';
 
-const initialFormData = { name: '', email: '', department: '', year: '', event: '' };
+const collegeOptions = [
+  { tenantId: 'psna', name: 'PSNA College of Engineering and Technology' },
+  { tenantId: 'anna-university', name: 'Anna University' },
+  { tenantId: 'psg', name: 'PSG College of Technology' },
+  { tenantId: 'loyola', name: 'Loyola College' },
+  { tenantId: 'mcc', name: 'Madras Christian College' },
+  { tenantId: 'srm', name: 'SRM Institute of Science and Technology' },
+  { tenantId: 'vit', name: 'VIT Vellore' },
+  { tenantId: 'kct', name: 'Kumaraguru College of Technology' }
+];
+
+const initialFormData = { name: '', email: '', department: '', year: '', tenantId: '', event: '' };
 
 const validateField = (name, value) => {
   const trimmedValue = value.trim();
@@ -107,6 +118,14 @@ function RegistrationForm({ events = [] }) {
           {touched.year && errors.year && <small className="form-error">{errors.year}</small>}
         </label>
       </div>
+      <label>
+        <span>College</span>
+        <select className={inputClassName('tenantId')} name="tenantId" value={formData.tenantId} onChange={handleChange} onBlur={handleBlur} aria-invalid={Boolean(errors.tenantId)}>
+          <option value="">Select college</option>
+          {collegeOptions.map((college) => <option key={college.tenantId} value={college.tenantId}>{college.name}</option>)}
+        </select>
+        {touched.tenantId && errors.tenantId && <small className="form-error">{errors.tenantId}</small>}
+      </label>
       <label>
         <span>Preferred event</span>
         <select className={inputClassName('event')} name="event" value={formData.event} onChange={handleChange} onBlur={handleBlur} aria-invalid={Boolean(errors.event)} disabled={!events.length}>
