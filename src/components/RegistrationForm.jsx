@@ -31,8 +31,8 @@ function RegistrationForm({ events = [] }) {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (events.length && !events.some((event) => event.title === formData.event)) {
-      setFormData((current) => ({ ...current, event: events[0].title }));
+    if (events.length && !events.some((event) => (event.title || event.name) === formData.event)) {
+      setFormData((current) => ({ ...current, event: events[0].title || events[0].name || '' }));
     }
   }, [events, formData.event]);
 
@@ -74,7 +74,7 @@ function RegistrationForm({ events = [] }) {
         status: 'confirmed'
       });
       setMessage(`Thanks ${formData.name.trim()}! Your registration for ${formData.event} has been received.`);
-      setFormData({ ...initialFormData, event: events[0]?.title || '' });
+      setFormData({ ...initialFormData, event: events[0]?.title || events[0]?.name || '' });
       setErrors({});
       setTouched({});
     } catch {
@@ -130,7 +130,7 @@ function RegistrationForm({ events = [] }) {
         <span>Preferred event</span>
         <select className={inputClassName('event')} name="event" value={formData.event} onChange={handleChange} onBlur={handleBlur} aria-invalid={Boolean(errors.event)} disabled={!events.length}>
           {!events.length && <option value="">Loading events…</option>}
-          {events.map((event) => <option key={event.id ?? event.title} value={event.title}>{event.title}</option>)}
+          {events.map((event) => <option key={event._id ?? event.id ?? event.title ?? event.name} value={event.title || event.name}>{event.title || event.name}</option>)}
         </select>
         {touched.event && errors.event && <small className="form-error">{errors.event}</small>}
       </label>
