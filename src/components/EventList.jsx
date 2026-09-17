@@ -12,10 +12,10 @@ function EventList({ events, expandedEventId, onToggleExpanded }) {
       ) : (
         events.map((event) => (
           <EventCard
-            key={event.id}
+            key={event._id || event.id || event.title || event.name}
             event={event}
-            isExpanded={expandedEventId === event.id}
-            onToggle={() => onToggleExpanded(event.id)}
+            isExpanded={expandedEventId === (event._id || event.id)}
+            onToggle={() => onToggleExpanded(event._id || event.id)}
           />
         ))
       )}

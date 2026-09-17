@@ -8,8 +8,9 @@ import RegisterPage from './RegisterPage';
 import ContactPage from './ContactPage';
 import Footer from './Footer';
 import AdminActivityLogs from './AdminActivityLogs';
+import AdminEventManagement from './AdminEventManagement';
 
-function Router({ events, allEvents, searchTerm, onSearchChange, categories, activeCategory, onCategoryChange, expandedEventId, onToggleExpanded }) {
+function Router({ events, allEvents, searchTerm, onSearchChange, categories, activeCategory, onCategoryChange, expandedEventId, onToggleExpanded, onEventsChange }) {
   return (
     <BrowserRouter>
       <Navbar />
@@ -34,6 +35,8 @@ function Router({ events, allEvents, searchTerm, onSearchChange, categories, act
         <Route path="/register" element={<RegisterPage events={allEvents} />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
+        <Route path="/admin/event-management" element={<AdminEventManagement events={allEvents} onEventsChange={onEventsChange} />} />
+        <Route path="/admin/events" element={<AdminEventManagement events={allEvents} onEventsChange={onEventsChange} />} />
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
       <Footer />
