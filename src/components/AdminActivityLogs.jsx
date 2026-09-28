@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
 import AdminSidebar from './AdminSidebar';
 
@@ -29,14 +30,20 @@ function AdminActivityLogs() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [authRequired, setAuthRequired] = useState(false);
 
   useEffect(() => {
     const loadTelemetry = async () => {
       try {
         const response = await api.get('/api/system-logs');
         setLogs(normalizeTelemetry(response.data));
-      } catch {
-        setError('Unable to load activity logs. Make sure the CampusConnect API server is running.');
+      } catch (requestError) {
+        if (requestError.response?.status === 401) {
+          setAuthRequired(true);
+          setError('You need to log in to view activity logs. Your session may have expired.');
+        } else {
+          setError('Unable to load activity logs. Make sure the CampusConnect API server is running.');
+        }
       } finally {
         setLoading(false);
       }
@@ -100,7 +107,12 @@ function AdminActivityLogs() {
           </div>
 
           {loading && <p className="admin-state">Loading activity logs…</p>}
-          {error && <p className="admin-state error">{error}</p>}
+          {error && (
+            <p className="admin-state error">
+              {error}
+              {authRequired && <> <Link to="/login" state={{ from: '/admin/activity-logs' }}>Log in</Link></>}
+            </p>
+          )}
           {!loading && !error && visibleLogs.length === 0 && <p className="admin-state">No activity logs match the selected filters.</p>}
           {!loading && !error && visibleLogs.length > 0 && (
             <div className="admin-table-wrap">
