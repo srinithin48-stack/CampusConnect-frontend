@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
+import AdminSidebar from './AdminSidebar';
 
 const cleanText = (value, fallback) => {
   const text = typeof value === 'string' ? value.trim() : '';
@@ -28,14 +30,20 @@ function AdminActivityLogs() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [authRequired, setAuthRequired] = useState(false);
 
   useEffect(() => {
     const loadTelemetry = async () => {
       try {
-        const response = await api.get('/telemetry');
+        const response = await api.get('/api/system-logs');
         setLogs(normalizeTelemetry(response.data));
-      } catch {
-        setError('Unable to load activity logs. Start JSON Server and try again.');
+      } catch (requestError) {
+        if (requestError.response?.status === 401) {
+          setAuthRequired(true);
+          setError('You need to log in to view activity logs. Your session may have expired.');
+        } else {
+          setError('Unable to load activity logs. Make sure the CampusConnect API server is running.');
+        }
       } finally {
         setLoading(false);
       }
@@ -69,45 +77,63 @@ function AdminActivityLogs() {
   };
 
   return (
-    <section className="admin-logs" aria-labelledby="activity-logs-heading">
-      <div className="section-heading highlight">
-        <h2 id="activity-logs-heading">Admin Activity Logs</h2>
-      </div>
-      <p className="page-intro">Monitor recent student activity and event registrations.</p>
+    <div className="admin-event-shell">
+      <header className="admin-topbar">
+        <div className="admin-brand"><span>CC</span> CampusConnect</div>
+        <div className="admin-profile"><span aria-hidden="true">♧</span><strong>A</strong><span>Admin⌄</span></div>
+      </header>
+      <div className="admin-layout admin-reference-layout">
+        <AdminSidebar />
+        <section className="admin-logs" aria-labelledby="activity-logs-heading">
+          <header className="admin-logs-header">
+            <span className="admin-heading-icon" aria-hidden="true">▤</span>
+            <div>
+              <h2 id="activity-logs-heading">Admin Activity Logs</h2>
+              <p className="page-intro">Monitor recent student activity and event registrations.</p>
+            </div>
+          </header>
 
-      <div className="admin-log-controls">
-        <input
-          type="search"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-          placeholder="Search student, event, or action"
-          aria-label="Search activity logs"
-        />
-        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter activity logs by status">
-          {statuses.map((status) => <option key={status}>{status}</option>)}
-        </select>
-      </div>
+          <div className="admin-log-controls">
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search student, event, or action"
+              aria-label="Search activity logs"
+            />
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} aria-label="Filter activity logs by status">
+              {statuses.map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </div>
 
-      {loading && <p className="admin-state">Loading activity logs…</p>}
-      {error && <p className="admin-state error">{error}</p>}
-      {!loading && !error && visibleLogs.length === 0 && <p className="admin-state">No activity logs match the selected filters.</p>}
-      {!loading && !error && visibleLogs.length > 0 && (
-        <div className="admin-table-wrap">
-          <table>
-            <thead>
-              <tr><th>Student</th><th>Event</th><th>Action</th><th>Date/Time</th><th>Status</th></tr>
-            </thead>
-            <tbody>
-              {visibleLogs.map((log) => (
-                <tr key={log.id}>
-                  <td>{log.student}</td><td>{log.event}</td><td>{log.action}</td><td>{formatDateTime(log.dateTime)}</td><td><span className="log-status">{log.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
+          {loading && <p className="admin-state">Loading activity logs…</p>}
+          {error && (
+            <p className="admin-state error">
+              {error}
+              {authRequired && <> <Link to="/login" state={{ from: '/admin/activity-logs' }}>Log in</Link></>}
+            </p>
+          )}
+          {!loading && !error && visibleLogs.length === 0 && <p className="admin-state">No activity logs match the selected filters.</p>}
+          {!loading && !error && visibleLogs.length > 0 && (
+            <div className="admin-table-wrap">
+              <table>
+                <thead>
+                  <tr><th>Student</th><th>Event</th><th>Action</th><th>Date/Time</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {visibleLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td>{log.student}</td><td>{log.event}</td><td>{log.action}</td><td>{formatDateTime(log.dateTime)}</td>
+                      <td><span className="log-status" data-status={log.status.toLowerCase()}>{log.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+    </div>
   );
 }
 
