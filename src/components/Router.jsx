@@ -11,6 +11,7 @@ import CreateAccountPage from './CreateAccountPage';
 import Footer from './Footer';
 import AdminActivityLogs from './AdminActivityLogs';
 import AdminEventManagement from './AdminEventManagement';
+import ProtectedRoute from './ProtectedRoute';
 
 function PageFooter() {
   const { pathname } = useLocation();
@@ -43,7 +44,7 @@ function Router({ events, allEvents, searchTerm, onSearchChange, categories, act
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/create-account" element={<CreateAccountPage />} />
-        <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
+        <Route path="/admin/activity-logs" element={<ProtectedRoute><AdminActivityLogs /></ProtectedRoute>} />
         <Route path="/admin/event-management" element={<AdminEventManagement events={allEvents} onEventsChange={onEventsChange} />} />
         <Route path="/admin/events" element={<AdminEventManagement events={allEvents} onEventsChange={onEventsChange} />} />
         <Route path="*" element={<Navigate replace to="/" />} />

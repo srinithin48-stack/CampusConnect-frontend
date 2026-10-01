@@ -1,12 +1,12 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import api from '../api/client';
-import { getTokenRole, setToken } from '../api/auth';
+import { useAuth } from '../context/AuthContext';
 import collegeOptions from '../api/colleges';
 
 const initialForm = { email: '', password: '', tenantId: '', remember: true };
 
 const loginErrorMessage = (error) => {
+  if (!error.isAxiosError) return error.message || 'Login failed. Please try again.';
   if (!error.response) return 'Unable to reach the CampusConnect server. Make sure the API is running and try again.';
   if (error.response.status === 401) return 'Invalid email or password for the selected college.';
   return error.response.data?.error?.message || 'Login failed. Please try again.';
@@ -21,6 +21,7 @@ function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { login } = useAuth();
   const [navbarHeight, setNavbarHeight] = useState(72);
 
   useEffect(() => {
@@ -75,20 +76,13 @@ function LoginPage() {
     setSubmitting(true);
     setMessage('');
     try {
-      const response = await api.post('/api/auth/login', {
+      const user = await login({
         email: form.email.trim(),
         password: form.password,
-        tenantId: form.tenantId
+        tenantId: form.tenantId,
+        remember: form.remember
       });
-      const { token } = response.data ?? {};
-      if (!token) {
-        setMessage('Login failed: the server did not return a token.');
-        setSubmitting(false);
-        return;
-      }
-
-      setToken(token, form.remember);
-      const fallback = getTokenRole(token) === 'admin' ? '/admin/activity-logs' : '/';
+      const fallback = user.role === 'admin' ? '/admin/activity-logs' : '/';
       navigate(location.state?.from || fallback, { replace: true });
     } catch (error) {
       setMessage(loginErrorMessage(error));
