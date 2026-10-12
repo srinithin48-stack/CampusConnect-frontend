@@ -1,9 +1,9 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import collegeOptions from '../api/colleges';
+import collegeOptions, { OTHER_COLLEGE, resolveCollegeTenantId, validateCollegeName } from '../api/colleges';
 
-const initialForm = { email: '', password: '', tenantId: '', remember: true };
+const initialForm = { email: '', password: '', tenantId: '', collegeName: '', remember: true };
 
 const loginErrorMessage = (error) => {
   if (!error.isAxiosError) return error.message || 'Login failed. Please try again.';
@@ -63,6 +63,9 @@ function LoginPage() {
     }
     if (!form.tenantId) {
       nextErrors.tenantId = 'Select your college.';
+    } else if (form.tenantId === OTHER_COLLEGE) {
+      const collegeNameError = validateCollegeName(form.collegeName);
+      if (collegeNameError) nextErrors.collegeName = collegeNameError;
     }
     return nextErrors;
   };
@@ -79,7 +82,7 @@ function LoginPage() {
       const user = await login({
         email: form.email.trim(),
         password: form.password,
-        tenantId: form.tenantId,
+        tenantId: resolveCollegeTenantId(form.tenantId, form.collegeName),
         remember: form.remember
       });
       const fallback = user.role === 'admin' ? '/admin/activity-logs' : '/';
@@ -203,9 +206,33 @@ function LoginPage() {
                 {collegeOptions.map((college) => (
                   <option key={college.tenantId} value={college.tenantId}>{college.name}</option>
                 ))}
+                <option value={OTHER_COLLEGE}>+ Add Other College</option>
               </select>
             </div>
             {errors.tenantId && <p className="login-error">{errors.tenantId}</p>}
+
+            {form.tenantId === OTHER_COLLEGE && (
+              <>
+                <label className="login-label" htmlFor="login-college-name">College Name</label>
+                <div className={`login-input${errors.collegeName ? ' has-error' : ''}`}>
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M3 9.5 12 5l9 4.5" />
+                    <path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3.5 20h17" />
+                  </svg>
+                  <input
+                    id="login-college-name"
+                    name="collegeName"
+                    type="text"
+                    autoComplete="organization"
+                    maxLength={150}
+                    placeholder="Enter your college name"
+                    value={form.collegeName}
+                    onChange={handleChange}
+                  />
+                </div>
+                {errors.collegeName && <p className="login-error">{errors.collegeName}</p>}
+              </>
+            )}
 
             <div className="login-options">
               <label className="login-remember">

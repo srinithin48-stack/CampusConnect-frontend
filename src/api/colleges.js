@@ -10,3 +10,27 @@ const collegeOptions = [
 ];
 
 export default collegeOptions;
+
+// Dropdown value for "+ Add Other College"; the typed name is sent as `tenantId`
+// and the API reuses or creates the matching tenant.
+export const OTHER_COLLEGE = '__other__';
+
+const COLLEGE_NAME_MIN_LENGTH = 2;
+const COLLEGE_NAME_MAX_LENGTH = 150;
+
+export const normalizeCollegeName = (value = '') => value.trim().replace(/\s+/g, ' ');
+
+export const validateCollegeName = (value) => {
+  const name = normalizeCollegeName(value);
+  if (!name) return 'College name is required.';
+  if (name.length < COLLEGE_NAME_MIN_LENGTH) return `Use at least ${COLLEGE_NAME_MIN_LENGTH} characters.`;
+  if (name.length > COLLEGE_NAME_MAX_LENGTH) return `Use at most ${COLLEGE_NAME_MAX_LENGTH} characters.`;
+  if (!/^[\p{L}\p{M}0-9 .,&'()/-]+$/u.test(name)) return 'Use only letters, numbers, spaces and . , & \' ( ) / -';
+  if (!/\p{L}/u.test(name)) return 'College name must contain letters.';
+  return '';
+};
+
+// The `tenantId` to send: the selected college's ID, or the typed name for "Other".
+export const resolveCollegeTenantId = (tenantId, collegeName) => (
+  tenantId === OTHER_COLLEGE ? normalizeCollegeName(collegeName) : tenantId
+);

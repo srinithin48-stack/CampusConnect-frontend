@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/client';
-import collegeOptions from '../api/colleges';
+import collegeOptions, { OTHER_COLLEGE, resolveCollegeTenantId, validateCollegeName } from '../api/colleges';
 
-const initialForm = { fullName: '', email: '', password: '', confirmPassword: '', tenantId: '' };
+const initialForm = { fullName: '', email: '', password: '', confirmPassword: '', tenantId: '', collegeName: '' };
 
 const signupErrorMessage = (error) => {
   if (!error.response) return 'Unable to reach the CampusConnect server. Make sure the API is running and try again.';
@@ -29,6 +29,10 @@ const validate = (form) => {
     errors.confirmPassword = 'Passwords do not match.';
   }
   if (!form.tenantId) errors.tenantId = 'Select your college.';
+  if (form.tenantId === OTHER_COLLEGE) {
+    const collegeNameError = validateCollegeName(form.collegeName);
+    if (collegeNameError) errors.collegeName = collegeNameError;
+  }
   return errors;
 };
 
@@ -69,7 +73,7 @@ function CreateAccountPage() {
         fullName: form.fullName.trim(),
         email: form.email.trim(),
         password: form.password,
-        tenantId: form.tenantId
+        tenantId: resolveCollegeTenantId(form.tenantId, form.collegeName)
       });
       navigate('/login', { state: { accountCreated: true } });
     } catch (error) {
@@ -118,8 +122,15 @@ function CreateAccountPage() {
                 {collegeOptions.map((college) => (
                   <option key={college.tenantId} value={college.tenantId}>{college.name}</option>
                 ))}
+                <option value={OTHER_COLLEGE}>+ Add Other College</option>
               </select>
             </Field>
+
+            {form.tenantId === OTHER_COLLEGE && (
+              <Field id="signup-collegeName" label="College Name" error={errors.collegeName}>
+                <input {...inputProps('collegeName')} type="text" autoComplete="organization" maxLength={150} placeholder="Enter your college name" />
+              </Field>
+            )}
 
             <button type="submit" className="signup-submit" disabled={submitting}>
               {submitting ? 'Creating account…' : 'Create Account'}
