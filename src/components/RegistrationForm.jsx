@@ -1,21 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/client';
+import collegeOptions, { OTHER_COLLEGE, resolveCollegeTenantId, validateCollegeName } from '../api/colleges';
 
-const collegeOptions = [
-  { tenantId: 'psna', name: 'PSNA College of Engineering and Technology' },
-  { tenantId: 'anna-university', name: 'Anna University' },
-  { tenantId: 'psg', name: 'PSG College of Technology' },
-  { tenantId: 'loyola', name: 'Loyola College' },
-  { tenantId: 'mcc', name: 'Madras Christian College' },
-  { tenantId: 'srm', name: 'SRM Institute of Science and Technology' },
-  { tenantId: 'vit', name: 'VIT Vellore' },
-  { tenantId: 'kct', name: 'Kumaraguru College of Technology' }
-];
+const initialFormData = { name: '', email: '', department: '', year: '', tenantId: '', collegeName: '', event: '' };
 
-const initialFormData = { name: '', email: '', department: '', year: '', tenantId: '', event: '' };
-
-const validateField = (name, value) => {
+const validateField = (name, value, formData) => {
   const trimmedValue = value.trim();
+
+  // Only required when "+ Add Other College" is selected.
+  if (name === 'collegeName') return formData.tenantId === OTHER_COLLEGE ? validateCollegeName(value) : '';
 
   if (!trimmedValue) return 'This field is required.';
   if (name === 'email' && !/^\S+@\S+\.\S+$/.test(trimmedValue)) return 'Enter a valid email address.';
@@ -31,30 +24,35 @@ function RegistrationForm({ events = [] }) {
   const [message, setMessage] = useState('');
 
   useEffect(() => {
-    if (events.length && !events.some((event) => event.title === formData.event)) {
-      setFormData((current) => ({ ...current, event: events[0].title }));
+    if (events.length && !events.some((event) => (event.title || event.name) === formData.event)) {
+      setFormData((current) => ({ ...current, event: events[0].title || events[0].name || '' }));
     }
   }, [events, formData.event]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
-    setFormData((current) => ({ ...current, [name]: value }));
+    const nextFormData = { ...formData, [name]: value };
+    setFormData(nextFormData);
     setMessage('');
 
     if (touched[name]) {
-      setErrors((current) => ({ ...current, [name]: validateField(name, value) }));
+      setErrors((current) => ({ ...current, [name]: validateField(name, value, nextFormData) }));
+    }
+    // Switching away from "+ Add Other College" clears the college name error.
+    if (name === 'tenantId' && touched.collegeName) {
+      setErrors((current) => ({ ...current, collegeName: validateField('collegeName', nextFormData.collegeName, nextFormData) }));
     }
   };
 
   const handleBlur = (event) => {
     const { name, value } = event.target;
     setTouched((current) => ({ ...current, [name]: true }));
-    setErrors((current) => ({ ...current, [name]: validateField(name, value) }));
+    setErrors((current) => ({ ...current, [name]: validateField(name, value, formData) }));
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    const nextErrors = Object.fromEntries(Object.entries(formData).map(([name, value]) => [name, validateField(name, value)]));
+    const nextErrors = Object.fromEntries(Object.entries(formData).map(([name, value]) => [name, validateField(name, value, formData)]));
     const hasErrors = Object.values(nextErrors).some(Boolean);
     setTouched(Object.keys(formData).reduce((result, name) => ({ ...result, [name]: true }), {}));
     setErrors(nextErrors);
@@ -65,7 +63,12 @@ function RegistrationForm({ events = [] }) {
     try {
       setSubmitting(true);
       const createdAt = new Date().toISOString();
-      await api.post('/api/registrations', { ...formData, createdAt });
+      const { collegeName, ...registration } = formData;
+      await api.post('/api/registrations', {
+        ...registration,
+        tenantId: resolveCollegeTenantId(formData.tenantId, collegeName),
+        createdAt
+      });
       await api.post('/api/telemetry', {
         studentName: formData.name.trim(),
         eventName: formData.event.trim(),
@@ -74,7 +77,7 @@ function RegistrationForm({ events = [] }) {
         status: 'confirmed'
       });
       setMessage(`Thanks ${formData.name.trim()}! Your registration for ${formData.event} has been received.`);
-      setFormData({ ...initialFormData, event: events[0]?.title || '' });
+      setFormData({ ...initialFormData, event: events[0]?.title || events[0]?.name || '' });
       setErrors({});
       setTouched({});
     } catch {
@@ -123,14 +126,22 @@ function RegistrationForm({ events = [] }) {
         <select className={inputClassName('tenantId')} name="tenantId" value={formData.tenantId} onChange={handleChange} onBlur={handleBlur} aria-invalid={Boolean(errors.tenantId)}>
           <option value="">Select college</option>
           {collegeOptions.map((college) => <option key={college.tenantId} value={college.tenantId}>{college.name}</option>)}
+          <option value={OTHER_COLLEGE}>+ Add Other College</option>
         </select>
         {touched.tenantId && errors.tenantId && <small className="form-error">{errors.tenantId}</small>}
       </label>
+      {formData.tenantId === OTHER_COLLEGE && (
+        <label>
+          <span>College name</span>
+          <input className={inputClassName('collegeName')} name="collegeName" value={formData.collegeName} onChange={handleChange} onBlur={handleBlur} maxLength={150} placeholder="Enter your college name" aria-invalid={Boolean(errors.collegeName)} />
+          {touched.collegeName && errors.collegeName && <small className="form-error">{errors.collegeName}</small>}
+        </label>
+      )}
       <label>
         <span>Preferred event</span>
         <select className={inputClassName('event')} name="event" value={formData.event} onChange={handleChange} onBlur={handleBlur} aria-invalid={Boolean(errors.event)} disabled={!events.length}>
           {!events.length && <option value="">Loading events…</option>}
-          {events.map((event) => <option key={event.id ?? event.title} value={event.title}>{event.title}</option>)}
+          {events.map((event) => <option key={event._id ?? event.id ?? event.title ?? event.name} value={event.title || event.name}>{event.title || event.name}</option>)}
         </select>
         {touched.event && errors.event && <small className="form-error">{errors.event}</small>}
       </label>
