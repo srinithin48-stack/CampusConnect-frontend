@@ -18,7 +18,7 @@ function PageFooter() {
   return pathname === '/login' ? null : <Footer />;
 }
 
-function Router({ events, allEvents, searchTerm, onSearchChange, categories, activeCategory, onCategoryChange, expandedEventId, onToggleExpanded, onEventsChange }) {
+function Router({ events, allEvents, eventsStatus, searchTerm, onSearchChange, categories, activeCategory, onCategoryChange, expandedEventId, onToggleExpanded, onEventsChange }) {
   return (
     <BrowserRouter>
       <Navbar />
@@ -40,7 +40,7 @@ function Router({ events, allEvents, searchTerm, onSearchChange, categories, act
           }
         />
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/register" element={<RegisterPage events={allEvents} />} />
+        <Route path="/register" element={<RegisterPage events={allEvents} eventsStatus={eventsStatus} />} />
         <Route path="/contact" element={<ContactPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/create-account" element={<CreateAccountPage />} />

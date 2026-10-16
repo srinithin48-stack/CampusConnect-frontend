@@ -7,14 +7,17 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [expandedEventId, setExpandedEventId] = useState(null);
+  const [eventsStatus, setEventsStatus] = useState('loading');
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
         const response = await api.get('/api/events');
         setEvents(Array.isArray(response.data) ? response.data : []);
+        setEventsStatus('loaded');
       } catch (error) {
         console.error('Unable to load events from the API.', error);
+        setEventsStatus('error');
       }
     };
 
@@ -43,6 +46,7 @@ function App() {
       <Router
         events={visibleEvents}
         allEvents={events}
+        eventsStatus={eventsStatus}
         searchTerm={searchTerm}
         onSearchChange={(event) => setSearchTerm(event.target.value)}
         categories={categories}

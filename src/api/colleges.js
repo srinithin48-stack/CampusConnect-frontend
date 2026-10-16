@@ -22,7 +22,7 @@ export const normalizeCollegeName = (value = '') => value.trim().replace(/\s+/g,
 
 export const validateCollegeName = (value) => {
   const name = normalizeCollegeName(value);
-  if (!name) return 'College name is required.';
+  if (!name) return 'Enter your college name.';
   if (name.length < COLLEGE_NAME_MIN_LENGTH) return `Use at least ${COLLEGE_NAME_MIN_LENGTH} characters.`;
   if (name.length > COLLEGE_NAME_MAX_LENGTH) return `Use at most ${COLLEGE_NAME_MAX_LENGTH} characters.`;
   if (!/^[\p{L}\p{M}0-9 .,&'()/-]+$/u.test(name)) return 'Use only letters, numbers, spaces and . , & \' ( ) / -';

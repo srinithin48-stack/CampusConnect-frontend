@@ -4,6 +4,15 @@ import collegeOptions, { OTHER_COLLEGE, resolveCollegeTenantId, validateCollegeN
 
 const initialFormData = { name: '', email: '', department: '', year: '', tenantId: '', collegeName: '', event: '' };
 
+// Same email pattern and name limit as the API, so the backend never rejects what the form accepts.
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const NAME_MAX_LENGTH = 150;
+
+const registrationErrorMessage = (error) => {
+  if (!error.response) return 'Unable to reach the CampusConnect server. Make sure the API is running and try again.';
+  return error.response.data?.error?.message || 'Unable to submit your registration. Please try again.';
+};
+
 const validateField = (name, value, formData) => {
   const trimmedValue = value.trim();
 
@@ -11,12 +20,19 @@ const validateField = (name, value, formData) => {
   if (name === 'collegeName') return formData.tenantId === OTHER_COLLEGE ? validateCollegeName(value) : '';
 
   if (!trimmedValue) return 'This field is required.';
-  if (name === 'email' && !/^\S+@\S+\.\S+$/.test(trimmedValue)) return 'Enter a valid email address.';
+  if (name === 'email' && !EMAIL_PATTERN.test(trimmedValue)) return 'Enter a valid email address.';
   if (name === 'name' && trimmedValue.length < 2) return 'Enter at least 2 characters.';
+  if (name === 'name' && trimmedValue.length > NAME_MAX_LENGTH) return `Use at most ${NAME_MAX_LENGTH} characters.`;
   return '';
 };
 
-function RegistrationForm({ events = [] }) {
+// Placeholder for the event dropdown when there are no events to choose from.
+const emptyEventsLabel = {
+  error: 'Unable to load events',
+  loaded: 'No events available'
+};
+
+function RegistrationForm({ events = [], eventsStatus = 'loading' }) {
   const [formData, setFormData] = useState(initialFormData);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
@@ -69,19 +85,24 @@ function RegistrationForm({ events = [] }) {
         tenantId: resolveCollegeTenantId(formData.tenantId, collegeName),
         createdAt
       });
-      await api.post('/api/telemetry', {
-        studentName: formData.name.trim(),
-        eventName: formData.event.trim(),
-        action: 'registered',
-        dateTime: createdAt,
-        status: 'confirmed'
-      });
+      // The booking is already saved, so a telemetry failure must not report the registration as failed.
+      try {
+        await api.post('/api/telemetry', {
+          studentName: formData.name.trim(),
+          eventName: formData.event.trim(),
+          action: 'registered',
+          dateTime: createdAt,
+          status: 'confirmed'
+        });
+      } catch (error) {
+        console.error('Unable to record registration telemetry.', error);
+      }
       setMessage(`Thanks ${formData.name.trim()}! Your registration for ${formData.event} has been received.`);
       setFormData({ ...initialFormData, event: events[0]?.title || events[0]?.name || '' });
       setErrors({});
       setTouched({});
-    } catch {
-      setMessage('Unable to submit your registration. Please try again.');
+    } catch (error) {
+      setMessage(registrationErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -140,7 +161,7 @@ function RegistrationForm({ events = [] }) {
       <label>
         <span>Preferred event</span>
         <select className={inputClassName('event')} name="event" value={formData.event} onChange={handleChange} onBlur={handleBlur} aria-invalid={Boolean(errors.event)} disabled={!events.length}>
-          {!events.length && <option value="">Loading events…</option>}
+          {!events.length && <option value="">{emptyEventsLabel[eventsStatus] || 'Loading events…'}</option>}
           {events.map((event) => <option key={event._id ?? event.id ?? event.title ?? event.name} value={event.title || event.name}>{event.title || event.name}</option>)}
         </select>
         {touched.event && errors.event && <small className="form-error">{errors.event}</small>}

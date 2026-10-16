@@ -12,7 +12,11 @@ const signupErrorMessage = (error) => {
 
 const validate = (form) => {
   const errors = {};
-  if (!form.fullName.trim()) errors.fullName = 'Full name is required.';
+  if (!form.fullName.trim()) {
+    errors.fullName = 'Full name is required.';
+  } else if (form.fullName.trim().length > 150) {
+    errors.fullName = 'Use at most 150 characters.';
+  }
   if (!form.email.trim()) {
     errors.email = 'Email address is required.';
   } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {

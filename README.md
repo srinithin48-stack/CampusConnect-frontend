@@ -1,39 +1,55 @@
 # CampusConnect
 
-CampusConnect is a React (Vite) single-page application for discovering, filtering, and registering for college events, backed by a separate Express API. Registrations (Users and Bookings) are persisted in MySQL through Sequelize with a tenant-isolated schema and transactional writes; Events and SystemLogs are persisted in MongoDB through Mongoose.
+CampusConnect is a React (Vite) single-page application for discovering, filtering, and registering for college events, backed by a separate Express API. Registrations (Users and Bookings) are persisted in MySQL through Sequelize with a tenant-isolated schema and transactional writes, where each college is a row in a `tenants` table referenced by a numeric `tenantId`. Events and SystemLogs are persisted in MongoDB through Mongoose. Students create accounts and log in with bcrypt-hashed passwords and JWTs.
 
 ## Features
 
 - React single-page experience with existing navigation and page layouts
 - Student event browsing with search, category filtering, and expandable event details across Home, Events, About, Register, and Contact pages
+- Refreshed Home page with a campus illustration, featured-event card, highlight stats, and call to action
 - Axios-based event loading, event registration, and admin event management
+- Create Account (`/create-account`) and Login (`/login`) pages with form validation, a show/hide password toggle, and clear error messages
+- Passwords stored as bcrypt hashes; login returns a JWT carrying `userId`, numeric `tenantId`, `role`, and an expiry
+- `AuthContext` login state shared across the app, with "Remember me" (`localStorage`) or session-only (`sessionStorage`) token storage, automatic logout when the token expires or a protected API returns `401`, and the token kept out of `window` globals
+- Protected `/admin/activity-logs` route that redirects to Login and returns to the requested page afterwards; the navbar and admin sidebar show Login or Logout to match the login state
+- College dropdown on Login, Create Account, and Event Registration, with a "+ Add Other College" option for colleges that are not listed
+- Colleges stored in a `tenants` table: a typed college name reuses the matching tenant's numeric ID, or creates a new tenant, without creating duplicates
 - Event registration persisted in MySQL through Sequelize `User` and `Booking` models, isolated per college by `tenantId` and written inside a database transaction (a failed booking rolls back the associated user insert)
 - Admin Event Management at `/admin/events`, with create, edit, delete, a nested `schedule`, and flexible `metadata`, backed by a MongoDB `Event` model
 - SystemLog entries recorded automatically in MongoDB (`SystemLog` model) whenever an event is created, updated, or deleted
 - A MongoDB seed script migrates historical events and telemetry out of `db.json`, which is now kept only as a legacy/backup migration source rather than the runtime data store
-- Internal-only Admin Activity Logs at `/admin/activity-logs`, showing SystemLog activity
+- Internal-only Admin Activity Logs at `/admin/activity-logs`, showing SystemLog activity to logged-in users
 - Shared event state refreshes after admin changes so the student Events and registration pages continue using current MongoDB-backed event data
 - Express REST API with JSON parsing, CORS, request logging, 404, and global error handling, running against MySQL and MongoDB at the same time
+- Frontend tests with Vitest and React Testing Library, and backend tests with Jest and Supertest
 
 ## Project Structure
 
 - index.html - Main HTML entry page
 - src/main.jsx - React entry point
 - src/components/App.jsx - Main app component and event loading state
-- src/components/Router.jsx - Student routes (Home, Events, About, Register, Contact) and admin routes (`/admin/events`, `/admin/activity-logs`)
+- src/components/Router.jsx - Student routes (Home, Events, About, Register, Contact, Login, Create Account) and admin routes (`/admin/events`, `/admin/activity-logs`)
+- src/components/LoginPage.jsx - Login form with college selection
+- src/components/CreateAccountPage.jsx - Account registration form with college selection
+- src/components/ProtectedRoute.jsx - Redirects logged-out users to Login
 - src/components/RegistrationForm.jsx - Event registration form, including college (tenant) selection, posting to the MySQL-backed `/api/registrations`
 - src/components/AdminEventManagement.jsx - Admin event CRUD interface for the MongoDB-backed `/api/events`
 - src/components/AdminActivityLogs.jsx - Admin SystemLog activity table
 - src/components/AdminSidebar.jsx - Internal admin navigation
-- src/api/client.js - Shared Axios API client
+- src/context/AuthContext.jsx - Login state, token storage, and logout
+- src/api/client.js - Shared Axios API client that attaches the JWT and handles `401` responses
+- src/api/colleges.js - College dropdown list, the "+ Add Other College" option, and college-name validation
+- src/test/ - Vitest tests for authentication and college selection
 - backend/server.js - Express API, routes, and middleware
+- backend/middleware/auth.js - JWT `authenticate` middleware for protected routes
 - backend/db/sequelize.js - MySQL connection (Sequelize)
 - backend/db/mongodb.js - MongoDB connection (Mongoose)
-- backend/models/User.js, backend/models/Booking.js - Sequelize models for MySQL
+- backend/models/Tenant.js, backend/models/User.js, backend/models/Booking.js - Sequelize models for MySQL
 - backend/models/Event.js, backend/models/SystemLog.js - Mongoose models for MongoDB
-- backend/migrations/ - Sequelize migrations for the `users` and `bookings` tables, including tenant isolation constraints
+- backend/migrations/ - Sequelize migrations for the `users`, `bookings`, and `tenants` tables, including tenant isolation constraints and the conversion to numeric tenant IDs
 - backend/scripts/seed-mongodb.js - Migrates events and telemetry from `db.json` into MongoDB
 - backend/scripts/verify-transaction.js - Verifies that a failed booking rolls back the associated user insert
+- backend/tests/ - Jest and Supertest tests for authentication and the JWT middleware
 - backend/db.json - Legacy/backup migration source for events and telemetry (no longer the runtime data store)
 - styles.css - Existing styling reused for the UI
 - ai-docs/milestones.md - Development milestones and planning notes
@@ -47,19 +63,30 @@ npm install
 npm --prefix backend install
 ```
 
-Configure `backend/.env` (see `backend/.env.example`) with your local MySQL and MongoDB connection settings, then run the one-time database setup:
+Configure `backend/.env` (see `backend/.env.example`) with your local MySQL and MongoDB connection settings and a `JWT_SECRET`, then run the one-time database setup:
 
 ```bash
 npm --prefix backend run db:migrate
 npm --prefix backend run db:seed-mongodb
 ```
+
 ## Local Development
 
-Run the frontend and backend separately using `npm run dev` in their respective project folders.
+Start the API and the frontend in separate terminals:
 
+```bash
+npm run api
+npm run dev
 ```
 
 Then open the local Vite URL shown in the terminal.
+
+## Testing
+
+```bash
+npm test                    # frontend (Vitest)
+npm --prefix backend test   # backend (Jest); needs MySQL, MongoDB, and JWT_SECRET
+```
 
 ## Technologies Used
 
@@ -74,13 +101,25 @@ Then open the local Vite URL shown in the terminal.
 - Sequelize
 - MongoDB
 - Mongoose
+- bcrypt
+- JSON Web Tokens
+- Vitest and React Testing Library
+- Jest and Supertest
 - HTML
 - CSS
 - JavaScript
 
 ## Registration and MySQL
 
-The Register page collects a student's college as a `tenantId` alongside their event registration. `POST /api/registrations` runs inside a Sequelize transaction that finds-or-creates the `User` for that `tenantId`/email and creates the `Booking`, so a registration is only saved if both writes succeed. Sequelize migrations enforce the tenant isolation: a unique `tenantId`+`email` constraint on users, a unique `tenantId`+`userId`+`eventName` constraint on bookings, and a composite `userId`+`tenantId` foreign key so a booking can only reference a user in the same tenant.
+The Register page collects a student's college alongside their event registration. `POST /api/registrations` runs inside a Sequelize transaction that resolves the college's tenant, finds-or-creates the `User` for that `tenantId`/email, and creates the `Booking`, so a registration is only saved if all writes succeed. Sequelize migrations enforce the tenant isolation: a unique `tenantId`+`email` constraint on users, a unique `tenantId`+`userId`+`eventName` constraint on bookings, foreign keys from both tables to `tenants`, and a composite `userId`+`tenantId` foreign key so a booking can only reference a user in the same tenant.
+
+## Accounts and login
+
+`POST /api/auth/register` creates a student account for the selected college, hashing the password with bcrypt and rejecting a duplicate email within the same college. `POST /api/auth/login` checks the email and password for the selected college and returns a JWT. The frontend keeps the token in `AuthContext` and the Axios client, sends it as `Authorization: Bearer <token>`, and logs out automatically when it expires or the API returns `401`. `GET /api/system-logs` requires a valid token.
+
+## Colleges and tenants
+
+Each college is a row in the MySQL `tenants` table with a numeric `id`, a unique `slug` (for example `psna`), and a `name`. The college dropdown sends the slug for listed colleges. Choosing "+ Add Other College" shows a College Name field; the form validates the name (2-150 characters, must contain letters, and only letters, numbers, spaces, and `. , & ' ( ) / -`) and sent as `tenantId`. When creating an account or registering for an event, the API reuses an existing tenant whose slug or name matches (ignoring case), or otherwise creates a new tenant, and saves the user and booking with its numeric `tenantId`. Login only looks colleges up and never creates a tenant.
 
 ## Admin event management
 

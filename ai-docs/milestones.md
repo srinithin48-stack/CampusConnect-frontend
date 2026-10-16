@@ -2,7 +2,7 @@
 
 ## Overview
 
-CampusConnect is a responsive React application for discovering, filtering, and registering for college events. It uses a blue-and-white design system, React Router for page navigation, and Axios for API calls against an Express backend. Registrations (Users and Bookings) are persisted in MySQL through Sequelize with a tenant-isolated schema and transactional writes; Events and SystemLogs are persisted in MongoDB through Mongoose. `db.json` is no longer the runtime data store — it is kept only as the legacy/backup source used to migrate historical events and telemetry into MongoDB.
+CampusConnect is a responsive React application for discovering, filtering, and registering for college events. It uses a blue-and-white design system, React Router for page navigation, and Axios for API calls against an Express backend. Registrations (Users and Bookings) are persisted in MySQL through Sequelize with a tenant-isolated schema and transactional writes; each college is a row in a `tenants` table, and users and bookings reference it by a numeric `tenantId`. Events and SystemLogs are persisted in MongoDB through Mongoose. Students create accounts and log in with bcrypt-hashed passwords and JWTs, and admin activity logs are protected behind that login. `db.json` is no longer the runtime data store — it is kept only as the legacy/backup source used to migrate historical events and telemetry into MongoDB.
 
 ## Milestones completed
 
@@ -86,11 +86,63 @@ Registrations continue to be persisted in MySQL (Week 5); Events and SystemLogs 
     - Removed a double-encoding bug where a JSON-string `schedule`/`metadata` field became an invalid quoted string in the form and incorrectly failed the "must be a JSON object" check on save.
     - Kept Create and Update accepting the same JSON object input with no changes to the UI, CRUD behavior, or API structure.
 
+### Week 7 - Login and account registration
+
+14. Add account registration and login APIs.
+    - Added `POST /api/auth/register`, which validates full name, email, password, and college, rejects a duplicate email within the same college with `409`, and stores the password as a bcrypt hash (never in plain text).
+    - Added `POST /api/auth/login`, which checks the email and password for the selected college, records `lastLoginAt`, and returns a JWT carrying `userId`, `tenantId`, `role`, and an expiry (`JWT_EXPIRES_IN`, default 1 hour).
+    - Added an `authenticate` middleware that requires a valid `Bearer` token and now protects `GET /api/system-logs`, returning `401` for a missing, invalid, or expired token.
+    - Added Jest and Supertest backend tests covering registration, password hashing, login success and failure, the JWT contents, and the protected system-logs route.
+
+15. Build the Login and Create Account pages.
+    - Added `/login` and `/create-account` routes with a two-panel layout in the existing blue-and-white style, with links between the two pages.
+    - Create Account validates full name, email format, an 8+ character password, matching confirmation, and college selection before calling the API, and returns to Login with an "Account created!" message.
+    - Login validates email, password, and college, offers a show/hide password toggle, and shows a clear message for invalid credentials or an unreachable server.
+    - Moved the college list into a shared `src/api/colleges.js` used by Login, Create Account, and Event Registration.
+    - Admin Activity Logs now shows a "Log in" link when the API returns `401`.
+
+### Week 8 - Authentication state, protected routes, and Home refresh
+
+16. Manage login state across the app with `AuthContext`.
+    - Added an `AuthProvider` that logs in, decodes the JWT, and exposes `user`, `isAuthenticated`, `login`, and `logout` to every page.
+    - Kept the token in module scope inside the Axios client (not on `window`), and attached it to every request as `Authorization: Bearer <token>`.
+    - "Remember me" keeps the token in `localStorage`; otherwise it is kept in `sessionStorage`, so a refresh or a typed URL does not log the user out.
+    - Expired tokens are ignored on load, the user is logged out automatically when the token expires, and any `401` from a protected API logs the user out.
+
+17. Protect admin pages and update navigation.
+    - Added a `ProtectedRoute` around `/admin/activity-logs` that redirects to `/login` and returns the user to the requested page after logging in; admins land on Activity Logs and students on Home by default.
+    - The navbar swaps Login for Logout when the user is logged in, and the admin sidebar only shows Activity Logs and Logout to logged-in users.
+
+18. Refresh the Home page.
+    - Redesigned the hero with a campus illustration, a featured-event card, and updated buttons.
+    - Rebuilt the highlight stats as icon cards with short descriptions, and restyled the "Ready to join campus life?" call to action.
+
+19. Add frontend tests.
+    - Added Vitest, jsdom, and React Testing Library (`npm test`), with helpers that mock the API through Axios so the real client and interceptors still run.
+    - Covered login and logout, the JWT never leaking into `window` globals, protected-route redirects, staying logged in across routes and full reloads, Remember me storage, and expired tokens.
+
+### College tenants and "+ Add Other College"
+
+20. Move colleges into a `tenants` table with numeric IDs.
+    - Added a `tenants` table, seeded with the colleges from the dropdown plus a `default-tenant` fallback, and foreign keys from `users.tenantId` and `bookings.tenantId` to it.
+    - Converted `tenants.id` to an auto-increment integer, keeping the old text IDs (`psna`, `psg`, ...) as a unique `slug`, then converted `users.tenantId` and `bookings.tenantId` to integers mapped through that slug. Existing rows are migrated, and the migration stops if any row would be left without a tenant.
+    - Recreated the tenant indexes and the composite `userId`+`tenantId` foreign key on the new integer columns, so a booking can still only reference a user in the same college.
+    - The JWT's `tenantId` is now the numeric tenant ID.
+
+21. Let students add a college that is not in the list.
+    - Added a "+ Add Other College" option to the college dropdown on Login, Create Account, and Event Registration, keeping all existing colleges. Choosing it shows a College Name field in the same style as the rest of the form.
+    - The frontend validates the typed name (2-150 characters, letters required, only letters, numbers, spaces, and `. , & ' ( ) / -`), collapses extra spaces, and sends it as `tenantId`.
+    - On account creation and event registration, the API looks for an existing tenant by slug or by name (ignoring case) and reuses its numeric ID; otherwise it creates a new tenant inside the same transaction as the user/booking. A unique-slug retry keeps two simultaneous sign-ups for the same new college on one tenant row.
+    - Login only looks up the college and never creates a tenant, so an unknown college returns "Invalid email or password".
+    - Added frontend tests for the name rules, signing up, logging in, and registering with a typed college, and for listed colleges still sending their ID.
+
 ## Project highlights
 
 - React and React Router for a structured single-page application
 - Axios GET and POST integration with an Express REST API
+- Account registration and login with bcrypt password hashing, JWTs, an `AuthContext`, and protected admin routes
 - MySQL (Sequelize) for Users and Bookings, with a tenant-isolated schema, field validation, and transactional registration writes
+- A `tenants` table with numeric IDs, plus "+ Add Other College" to register a college that is not in the list without creating duplicates
 - MongoDB (Mongoose) for Events and SystemLogs, with nested schedule data and a flexible metadata field
 - `db.json` retained only as the legacy/backup source for the one-time migration of historical events and telemetry into MongoDB
 - Form validation with accessible feedback and conditional styling
@@ -108,3 +160,5 @@ npm --prefix backend run db:seed-mongodb
 npm run api
 npm run dev
 ```
+
+Run the frontend tests with `npm test`, and the backend tests with `npm --prefix backend test` (the backend tests need MySQL, MongoDB, and `JWT_SECRET` configured).
