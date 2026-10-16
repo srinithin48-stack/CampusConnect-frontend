@@ -7,14 +7,17 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [expandedEventId, setExpandedEventId] = useState(null);
+  const [eventsStatus, setEventsStatus] = useState('loading');
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
         const response = await api.get('/api/events');
         setEvents(Array.isArray(response.data) ? response.data : []);
+        setEventsStatus('loaded');
       } catch (error) {
-        console.error('Unable to load events from JSON Server.', error);
+        console.error('Unable to load events from the API.', error);
+        setEventsStatus('error');
       }
     };
 
@@ -26,13 +29,13 @@ function App() {
 
     return events.filter((event) => {
       const matchesCategory = activeCategory === 'All' || event.category === activeCategory;
-      const searchableText = `${event.title} ${event.venue} ${event.category}`.toLowerCase();
+      const searchableText = `${event.title || event.name || ''} ${event.venue || event.location || ''} ${event.category || ''}`.toLowerCase();
       const matchesSearch = searchableText.includes(term);
       return matchesCategory && matchesSearch;
     });
   }, [events, searchTerm, activeCategory]);
 
-  const categories = ['All', ...new Set(events.map((event) => event.category))];
+  const categories = ['All', ...new Set(events.map((event) => event.category).filter(Boolean))];
 
   const toggleExpanded = (eventId) => {
     setExpandedEventId((current) => (current === eventId ? null : eventId));
@@ -43,6 +46,7 @@ function App() {
       <Router
         events={visibleEvents}
         allEvents={events}
+        eventsStatus={eventsStatus}
         searchTerm={searchTerm}
         onSearchChange={(event) => setSearchTerm(event.target.value)}
         categories={categories}
@@ -50,6 +54,7 @@ function App() {
         onCategoryChange={setActiveCategory}
         expandedEventId={expandedEventId}
         onToggleExpanded={toggleExpanded}
+        onEventsChange={setEvents}
       />
     </>
   );

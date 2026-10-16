@@ -1,15 +1,24 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Home from './Home';
 import EventsPage from './EventsPage';
 import AboutPage from './AboutPage';
 import RegisterPage from './RegisterPage';
 import ContactPage from './ContactPage';
+import LoginPage from './LoginPage';
+import CreateAccountPage from './CreateAccountPage';
 import Footer from './Footer';
 import AdminActivityLogs from './AdminActivityLogs';
+import AdminEventManagement from './AdminEventManagement';
+import ProtectedRoute from './ProtectedRoute';
 
-function Router({ events, allEvents, searchTerm, onSearchChange, categories, activeCategory, onCategoryChange, expandedEventId, onToggleExpanded }) {
+function PageFooter() {
+  const { pathname } = useLocation();
+  return pathname === '/login' ? null : <Footer />;
+}
+
+function Router({ events, allEvents, eventsStatus, searchTerm, onSearchChange, categories, activeCategory, onCategoryChange, expandedEventId, onToggleExpanded, onEventsChange }) {
   return (
     <BrowserRouter>
       <Navbar />
@@ -31,12 +40,16 @@ function Router({ events, allEvents, searchTerm, onSearchChange, categories, act
           }
         />
         <Route path="/about" element={<AboutPage />} />
-        <Route path="/register" element={<RegisterPage events={allEvents} />} />
+        <Route path="/register" element={<RegisterPage events={allEvents} eventsStatus={eventsStatus} />} />
         <Route path="/contact" element={<ContactPage />} />
-        <Route path="/admin/activity-logs" element={<AdminActivityLogs />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/create-account" element={<CreateAccountPage />} />
+        <Route path="/admin/activity-logs" element={<ProtectedRoute><AdminActivityLogs /></ProtectedRoute>} />
+        <Route path="/admin/event-management" element={<AdminEventManagement events={allEvents} onEventsChange={onEventsChange} />} />
+        <Route path="/admin/events" element={<AdminEventManagement events={allEvents} onEventsChange={onEventsChange} />} />
         <Route path="*" element={<Navigate replace to="/" />} />
       </Routes>
-      <Footer />
+      <PageFooter />
     </BrowserRouter>
   );
 }
