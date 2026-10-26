@@ -1,7 +1,7 @@
 import React from 'react';
 import RegistrationForm from './RegistrationForm';
 
-function RegisterPage({ events }) {
+function RegisterPage({ events, eventsStatus }) {
   return (
     <section className="registration-wrapper registration-layout">
       <div className="section-heading highlight">
@@ -33,7 +33,7 @@ function RegisterPage({ events }) {
             </div>
           </div>
         </div>
-        <RegistrationForm events={events} />
+        <RegistrationForm events={events} eventsStatus={eventsStatus} />
       </div>
     </section>
   );
