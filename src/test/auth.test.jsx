@@ -56,14 +56,15 @@ describe('auth-based UI', () => {
     expect(navbar().queryByRole('button', { name: 'Logout' })).not.toBeInTheDocument();
   });
 
-  it('hides protected sidebar items when logged out', async () => {
+  // Week 10: admin pages, including Event Management, now require an admin login,
+  // so a logged-out visitor never sees the admin sidebar.
+  it('sends logged-out visitors from admin pages to Login without showing the sidebar', async () => {
     mockBackend();
     renderApp('/admin/event-management');
 
-    const sidebar = within(await screen.findByRole('complementary', { name: 'Admin navigation' }));
-    expect(sidebar.getByRole('link', { name: /Event Management/ })).toBeInTheDocument();
-    expect(sidebar.queryByRole('link', { name: /Activity Logs/ })).not.toBeInTheDocument();
-    expect(sidebar.queryByRole('button', { name: /Logout/ })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Welcome Back!' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/login');
+    expect(screen.queryByRole('complementary', { name: 'Admin navigation' })).not.toBeInTheDocument();
   });
 
   it('does not expose the JWT through window globals', async () => {
@@ -147,7 +148,7 @@ describe('protected routes', () => {
   });
 
   it('returns to the originally requested page after logging in', async () => {
-    mockBackend({ ...loginRoute(makeToken({ role: 'student' })), ...logsRoute });
+    mockBackend({ ...loginRoute(makeToken({ role: 'admin' })), ...logsRoute });
     const { user } = renderApp('/admin/activity-logs');
     await screen.findByRole('heading', { name: 'Welcome Back!' });
 
@@ -160,11 +161,11 @@ describe('protected routes', () => {
 
 describe('route-state persistence', () => {
   it('keeps the user logged in across route changes without logging in again', async () => {
-    const token = makeToken({ role: 'student' });
+    const token = makeToken({ role: 'admin' });
     const requests = mockBackend({ ...loginRoute(token), ...logsRoute });
     const { user } = renderApp('/login');
     await submitLogin(user);
-    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    await waitFor(() => expect(window.location.pathname).toBe('/admin/activity-logs'));
 
     for (const page of ['Events', 'About', 'Contact', 'Home']) {
       await user.click(navbar().getByRole('link', { name: page }));
@@ -183,11 +184,11 @@ describe('route-state persistence', () => {
 
 describe('full page reloads', () => {
   it('stays logged in when Activity Logs is opened by URL or refreshed', async () => {
-    const token = makeToken({ role: 'student' });
+    const token = makeToken({ role: 'admin' });
     const requests = mockBackend({ ...loginRoute(token), ...logsRoute });
     const { user, unmount } = renderApp('/login');
     await submitLogin(user);
-    await waitFor(() => expect(window.location.pathname).toBe('/'));
+    await waitFor(() => expect(window.location.pathname).toBe('/admin/activity-logs'));
 
     // Simulate a real page load: the app and the API client start from scratch.
     unmount();

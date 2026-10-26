@@ -67,7 +67,7 @@ describe('login college selection', () => {
 
 describe('create account college selection', () => {
   const fillAccount = async (user) => {
-    await user.type(screen.getByLabelText(/^Full Name/), 'Asha Raman');
+    await user.type(await screen.findByLabelText(/^Full Name/), 'Asha Raman');
     await user.type(screen.getByLabelText(/^Email Address/), 'asha@sairam.edu');
     await user.type(screen.getByLabelText(/^Password/), 'StrongPass1');
     await user.type(screen.getByLabelText(/^Confirm Password/), 'StrongPass1');

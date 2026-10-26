@@ -2,7 +2,7 @@
 
 ## Overview
 
-CampusConnect is a responsive React application for discovering, filtering, and registering for college events. It uses a blue-and-white design system, React Router for page navigation, and Axios for API calls against an Express backend. Registrations (Users and Bookings) are persisted in MySQL through Sequelize with a tenant-isolated schema and transactional writes; each college is a row in a `tenants` table, and users and bookings reference it by a numeric `tenantId`. Events and SystemLogs are persisted in MongoDB through Mongoose. Students create accounts and log in with bcrypt-hashed passwords and JWTs, and admin activity logs are protected behind that login. `db.json` is no longer the runtime data store — it is kept only as the legacy/backup source used to migrate historical events and telemetry into MongoDB.
+CampusConnect is a responsive React application for discovering, filtering, and registering for college events. It uses a blue-and-white design system, React Router for page navigation, and Axios for API calls against an Express backend. Registrations (Users and Bookings) are persisted in MySQL through Sequelize with a tenant-isolated schema and transactional writes; each college is a row in a `tenants` table, and users and bookings reference it by a numeric `tenantId`. Events and SystemLogs are persisted in MongoDB through Mongoose. Students create accounts and log in with bcrypt-hashed passwords and JWTs. All admin pages require an `admin` account, both in the UI (role-based routes) and on the admin-only `GET /api/system-logs` API. Pages other than Home and Login are lazy-loaded, and an admin-only Routing Analytics page reports real route visits, navigation failures, and access-denied events. `db.json` is no longer the runtime data store — it is kept only as the legacy/backup source used to migrate historical events and telemetry into MongoDB.
 
 ## Milestones completed
 
@@ -136,11 +136,68 @@ Registrations continue to be persisted in MySQL (Week 5); Events and SystemLogs 
     - Login only looks up the college and never creates a tenant, so an unknown college returns "Invalid email or password".
     - Added frontend tests for the name rules, signing up, logging in, and registering with a typed college, and for listed colleges still sending their ID.
 
+### Week 9 - Backend and frontend verification
+
+Status: completed. The backend findings and test output are in the backend's `ai-docs/prompt-tests.md`.
+
+22. Review and fix the backend.
+    - Sequelize validation errors (`SequelizeValidationError`) now return `400` instead of a raw `500`.
+    - `POST /api/events`, `PUT /api/events/:id`, and `DELETE /api/events/:id` now require a valid JWT. Before, anyone could create, edit, or delete events through the API. `GET /api/events` stays public.
+    - `POST /api/auth/register` enforces the 8-character password minimum on the server too, and both `POST /api/auth/register` and `POST /api/registrations` check the email format before touching the database.
+    - Event create and update reject request bodies that are not a plain JSON object, because Mongoose treats an array as a bulk insert.
+    - Added 14 backend tests (`validation.test.js`, `eventsAuthorization.test.js`, `dbFailures.test.js`) for invalid input, duplicate bookings, missing or invalid tokens, and simulated database failures that must not leak error details. Backend tests: 31 passed.
+
+23. Verify the frontend forms against the live backend.
+    - Checked that Create Account, Login, and Event Registration send the right URLs and payloads, and that CORS, success responses, and the `400`/`401`/`409` error responses match what the backend returns.
+    - Event Registration now shows the backend's error message (for example "This student is already registered for this event.") instead of a generic "Please try again", and a clear message when the server cannot be reached.
+    - A failed telemetry request after a successful booking no longer reports the booking as failed.
+    - The registration email check now matches the backend's pattern, and names longer than 150 characters are rejected in the form instead of returning a raw database error.
+    - The event dropdown now shows "Unable to load events" or "No events available" instead of "Loading events…" forever.
+    - Fixed a college-name validation message that did not match its tests, which had left 3 tests failing.
+    - Added 12 frontend tests (`integration.test.jsx`) for payloads, loading states, backend error messages, unreachable-server messages, and the validation fixes. Confirmed the full flow (create account, log in, book, duplicate booking) end-to-end against the real API, MySQL, and MongoDB. Frontend tests: 38 passed.
+
+### Week 10 - Role-based routes, code splitting, Routing Analytics, and admin authorization
+
+Status: completed. Full frontend measurements and test results are in `ai-docs/week-10.md`, and the backend details are in the backend's `ai-docs/prompt-tests.md`.
+
+24. Add role-based protected routes.
+    - `ProtectedRoute` takes a `roles` list, and every admin route (`/admin/activity-logs`, `/admin/routing-analytics`, `/admin/events`, `/admin/event-management`) now requires `admin`.
+    - Logged-out visitors are sent to Login and returned to the page they asked for after logging in. Logged-in students and staff are sent to a new `/access-denied` page, and no admin API is called.
+    - Event Management was previously open to anyone in the UI, and Activity Logs was open to any logged-in user; both are now admin-only.
+
+25. Add lazy loading, Suspense, and code splitting.
+    - Home and Login stay in the main bundle. The Events, About, Register, Contact, Create Account, Access Denied, and all admin pages are separate chunks loaded with `React.lazy`.
+    - `Suspense` shows "Loading page…" while a chunk downloads, and a `RouteErrorBoundary` shows a reload message if a chunk fails to load.
+    - After the first page load, the public page chunks are prefetched while the browser is idle, so the first click to them does not wait on the network. Admin chunks are only downloaded when an admin opens them.
+    - Measured result: the main JavaScript bundle went from 87.44 kB to 80.40 kB gzipped (8% smaller), and non-admins never download the 7.3 kB of admin code. Page-load timings in a throttled browser did not change measurably.
+
+26. Add an admin-only Routing Analytics page (`/admin/routing-analytics`).
+    - The app records `route_visit`, `navigation_failure` (unknown URL, failed page load, or render error), and `access_denied` (`login_required` or `forbidden`) events through the existing `POST /api/telemetry` API.
+    - The page reads them back from `GET /api/system-logs` and shows totals, visits by route, and a list of failures and denials, with a time-range filter and loading, error, and empty states. It uses no sample data.
+    - Admin Activity Logs filters out these routing records, so its table is unchanged. The admin sidebar links to the new page.
+    - Verified against the real backend in a browser: 9 student actions produced exactly 9 records with no duplicates, and the page's totals matched MongoDB.
+
+27. Restrict admin-only APIs to the admin role (backend).
+    - Added `requireRole`/`requireAdmin` middleware; `GET /api/system-logs` now returns `401` without a token, `403` for students, and `200` for admins.
+    - Added `npm --prefix backend run db:promote-admin -- <email> [tenantId]` to promote an existing user to `admin`, since no API creates admin accounts.
+    - Confirmed Routing Analytics works with real data from `POST /api/telemetry` and `GET /api/system-logs` without backend code changes.
+
+28. Tests.
+    - Frontend: added `routing.test.jsx` (23 tests) and `lazy.test.jsx` (2 tests), and updated 4 existing tests that expected students or logged-out users to reach admin pages. Frontend tests: 63 passed, and the production build succeeds.
+    - Backend: added `adminAuthorization.test.js` (6 tests) and updated the system-logs test in `auth.test.js`. Backend tests: 37 passed.
+
+Remaining after Week 10:
+- `POST`, `PUT`, and `DELETE /api/events` still require only a valid token, not the admin role. The UI blocks students, but a student calling the API directly could still change events.
+- `POST /api/telemetry` is unauthenticated, so routing records can be forged.
+- `GET /api/system-logs` returns every record with no paging, and recording every page visit will make that response grow over time.
+
 ## Project highlights
 
 - React and React Router for a structured single-page application
 - Axios GET and POST integration with an Express REST API
-- Account registration and login with bcrypt password hashing, JWTs, an `AuthContext`, and protected admin routes
+- Account registration and login with bcrypt password hashing, JWTs, an `AuthContext`, and role-based admin routes backed by an admin-only API check
+- Lazy-loaded pages with `Suspense`, a chunk-load error boundary, and idle prefetching of public pages
+- Admin-only Routing Analytics built from real route visits, navigation failures, and access-denied events
 - MySQL (Sequelize) for Users and Bookings, with a tenant-isolated schema, field validation, and transactional registration writes
 - A `tenants` table with numeric IDs, plus "+ Add Other College" to register a college that is not in the list without creating duplicates
 - MongoDB (Mongoose) for Events and SystemLogs, with nested schedule data and a flexible metadata field
@@ -159,6 +216,12 @@ npm --prefix backend run db:migrate
 npm --prefix backend run db:seed-mongodb
 npm run api
 npm run dev
+```
+
+To open the admin pages, promote an existing account to `admin`:
+
+```bash
+npm --prefix backend run db:promote-admin -- <email> [tenantId]
 ```
 
 Run the frontend tests with `npm test`, and the backend tests with `npm --prefix backend test` (the backend tests need MySQL, MongoDB, and `JWT_SECRET` configured).

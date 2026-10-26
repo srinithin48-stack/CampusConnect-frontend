@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
+import { isRouteEvent } from '../api/routeAnalytics';
 import AdminSidebar from './AdminSidebar';
 
 const cleanText = (value, fallback) => {
@@ -13,8 +14,9 @@ const normalizeLabel = (value, fallback) => {
   return text === fallback ? text : text.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
 };
 
+// Routing events have their own page (Routing Analytics), so they are kept out of this table.
 const normalizeTelemetry = (records) => records
-  .filter((record) => record && typeof record === 'object')
+  .filter((record) => record && typeof record === 'object' && !isRouteEvent(record))
   .map((record, index) => ({
     id: cleanText(String(record.id ?? ''), `telemetry-${index}`),
     student: cleanText(record.student?.name ?? record.studentName, 'Unknown student'),

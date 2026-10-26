@@ -3160,3 +3160,16 @@ button:active {
   .contact-reference .contact-method-card,
   .contact-reference .contact-method-card:hover { transition: none; transform: none; }
 }
+
+/* Week 10: route loading, access denied / load failure, and Routing Analytics */
+.route-loading { max-width: 1180px; margin: 0 auto; padding: 3rem 1.25rem; color: var(--muted); text-align: center; }
+.route-status { max-width: 720px; margin: 0 auto; padding: 4rem 1.25rem; text-align: center; }
+.route-status h2 { margin: 0 0 0.75rem; color: var(--accent-dark); font-size: 1.9rem; }
+.route-status .page-intro { margin: 0 auto 0.5rem; }
+.route-status .detail-btn { display: inline-block; align-self: center; text-decoration: none; cursor: pointer; }
+.route-status code { overflow-wrap: anywhere; }
+.routing-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 0 0 1.5rem; }
+.routing-stat { margin: 0; padding: 1rem 1.15rem; background: #ffffff; border: 1px solid var(--border); border-radius: 1rem; box-shadow: var(--card-shadow); }
+.routing-stat dt { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
+.routing-stat dd { margin: 0.35rem 0 0; color: var(--accent-dark); font-size: 1.8rem; font-weight: 800; line-height: 1.1; }
+.routing-section-title { margin: 1.5rem 0 0.75rem; color: #153c7d; font-size: 1.05rem; }

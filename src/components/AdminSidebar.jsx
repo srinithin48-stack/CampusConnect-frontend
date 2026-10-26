@@ -17,6 +17,7 @@ function AdminSidebar() {
       <NavLink end to="/"><span aria-hidden="true">⌂</span> Dashboard</NavLink>
       <NavLink end to="/admin/event-management"><span aria-hidden="true">▣</span> Event Management</NavLink>
       {isAuthenticated && <NavLink end to="/admin/activity-logs"><span aria-hidden="true">▤</span> Activity Logs</NavLink>}
+      {isAuthenticated && <NavLink end to="/admin/routing-analytics"><span aria-hidden="true">◫</span> Routing Analytics</NavLink>}
       {isAuthenticated && (
         <button className="admin-logout-button" type="button" onClick={handleLogout}><span aria-hidden="true">⇥</span> Logout</button>
       )}

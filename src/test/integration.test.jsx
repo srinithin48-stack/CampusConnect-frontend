@@ -54,7 +54,7 @@ describe('event registration form', () => {
       event: 'Hackathon',
       createdAt: expect.any(String)
     });
-    expect(findRequest(requests, 'POST /api/telemetry').body).toEqual({
+    expect(requests.find((r) => r.key === 'POST /api/telemetry' && r.body.action === 'registered').body).toEqual({
       studentName: 'Asha Raman',
       eventName: 'Hackathon',
       action: 'registered',
@@ -146,7 +146,7 @@ describe('event registration form', () => {
 
 describe('create account form', () => {
   const fillAccount = async (user, fullName = 'Asha Raman') => {
-    await user.type(screen.getByLabelText(/^Full Name/), fullName);
+    await user.type(await screen.findByLabelText(/^Full Name/), fullName);
     await user.type(screen.getByLabelText(/^Email Address/), 'asha@psna.edu');
     await user.type(screen.getByLabelText(/^Password/), 'StrongPass1');
     await user.type(screen.getByLabelText(/^Confirm Password/), 'StrongPass1');
